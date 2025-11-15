@@ -2,7 +2,7 @@
 
 
 from persona import Persona
-import random
+from random import Random
 
 class Calendario:
 
@@ -23,8 +23,8 @@ class Calendario:
         de cada día de forma equitativa.
         """
         num_dias = len(self.dias)
-        lista_dnis = random.sample(range(10_000_000, 50_000_000), total_personas)
-
+        rand_poblacion = Random(41)
+        lista_dnis = rand_poblacion.sample(range(10_000_000, 50_000_000), total_personas)
         mapeo_dias = {
             0: "lunes",
             1: "lunes",

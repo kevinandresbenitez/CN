@@ -33,14 +33,21 @@ class SimuladorVacunacion:
 
         self.estadisticas: Dict[str, Any] = {}
 
+        # Agrego esto para fijar secuencia aleatoria
+        self.rand_asistencia = random.Random(42)
+        self.rand_llegada = random.Random(43)
+        self.rand_servicio = random.Random(44)
+        self.rand_abandono = random.Random(45)
+
+
     
     def _generar_tiempo_llegada(self) -> float:
         """Genera el tiempo HASTA la próxima llegada."""
         # Tasa de 30 personas/min -> Media de 1/30 minutos entre llegadas
-        return random.expovariate(self.TASA_LLEGADAS)
+        return self.rand_llegada.expovariate(self.TASA_LLEGADAS)
 
     def _generar_tiempo_servicio(self) -> float:
-        return random.expovariate(1.0 / self.TIEMPO_SERVICIO)
+        return self.rand_servicio.expovariate(1.0 / self.TIEMPO_SERVICIO)
 
     def _buscar_cabina_libre(self) -> Optional[Cabina]:
         """Encuentra la primera cabina no ocupada."""
@@ -65,7 +72,7 @@ class SimuladorVacunacion:
                 self._programar_evento(cabina_libre.tiempo_liberacion, "SALIDA", cabina_libre)
         else:
             # No hay cabinas. La persona mira la cola y decide.
-            if len(self.cola) > self.COLA_PACIENCIA and random.random() < self.PROB_ABANDONO:
+            if len(self.cola) > self.COLA_PACIENCIA and self.rand_abandono.random() < self.PROB_ABANDONO:
                 # Abandona
                 persona.abandono = True
                 self.estadisticas['abandonos'] += 1
@@ -117,7 +124,7 @@ class SimuladorVacunacion:
         for persona in pacientes_potenciales_hoy:
             
             # Cada persona tiene una probabilidad de asistir
-            if random.random() < self.TASA_ASISTENCIA:
+            if self.rand_asistencia.random() < self.TASA_ASISTENCIA:
                 # Generamos su tiempo de llegada
                 tiempo_prox_llegada += self._generar_tiempo_llegada()
             
