@@ -10,8 +10,8 @@ from simuladorVacunacion import SimuladorVacunacion
 
 
 CONSTANTES = {
-    "CABINAS": 10,
-    "POBLACION_TOTAL": 180000,
+    "CABINAS": 1,
+    "POBLACION_TOTAL": 20000,
     "TASA_LLEGADAS": 30,
     "TIEMPO_SERVICIO": 3,
     "HORAS_TRABAJO": 10,
@@ -45,6 +45,7 @@ if __name__ == "__main__":
     dia_global = 0
     semana = 0
     costo_total_campana = 0.0
+    proximo_hito_porcentaje=10
     
     # Chequear si ya terminamos
     while calendario.total_vacunados() < CONSTANTES["POBLACION_TOTAL"]:
@@ -90,6 +91,13 @@ if __name__ == "__main__":
                   f"Cola Máx: {stats_dia['cola_maxima']}, "
                   f"Espera Prom: {stats_dia['tiempo_espera_promedio']:.2f} min, "
                   f"Costo: ${stats_dia['costo_total_dia']:,.2f}")
+            
+            #Mostrar hitos
+            print(proximo_hito_porcentaje)
+            porcentaje_actual = (calendario.total_vacunados() / CONSTANTES["POBLACION_TOTAL"]) * 100
+            if(porcentaje_actual >= proximo_hito_porcentaje):
+                print(f"  >>> HITO: Se superó el {proximo_hito_porcentaje}% de la población el Día {dia_global} (Semana {semana})")
+                proximo_hito_porcentaje +=10
         
         # Reporte al final de la semana
         espera_prom_semana = 0.0
@@ -115,6 +123,7 @@ if __name__ == "__main__":
     dias_reales = dia_global - (len(calendario.dias) - dias_operativos_semana)
     
     print(f"  Tiempo total: {dias_reales} días ({semana} semanas)")
+    print(f"  Cantidad de cabinas utilizadas: {CONSTANTES['CABINAS']}")
     print(f"  Población objetivo: {CONSTANTES['POBLACION_TOTAL']}")
     print(f"  Vacunados finales: {calendario.total_vacunados()}")
     print(f"  Costo total de la campaña: ${costo_total_campana:,.2f}")
