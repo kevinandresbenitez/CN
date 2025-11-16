@@ -35,7 +35,7 @@ if __name__ == "__main__":
     # Inicializar simulacion
     simulacion = SimuladorVacunacion(calendario,CONSTANTES)
   
-    # --- Contadores Globales (NUEVOS) ---
+    # --- Contadores Globales ---
     dia_global = 0
     semana = 0
     costo_total_campana = 0.0
@@ -52,7 +52,7 @@ if __name__ == "__main__":
         semana +=1
         print(f"\n--- Semana {semana} ---")
 
-        # --- Contadores Semanales (NUEVOS) ---
+        # --- Contadores Semanales  ---
         vacunados_semana = 0
         abandonos_voluntarios_semana = 0
         abandonos_cierre_semana = 0
@@ -85,7 +85,7 @@ if __name__ == "__main__":
             # 3. Acumular para el resumen SEMANAL
             vacunados_semana += stats_dia['vacunados']
             abandonos_voluntarios_semana += stats_dia['abandonos']
-            abandonos_cierre_semana += stats_dia['reprogramados'] # 'reprogramados' son los de cierre
+            abandonos_cierre_semana += stats_dia['reprogramados'] 
             costo_semana += stats_dia['costo_total_dia']
             cola_max_semana = max(cola_max_semana, stats_dia['cola_maxima'])
             
@@ -93,7 +93,7 @@ if __name__ == "__main__":
             lista_espera_semana.extend(stats_dia['tiempos_de_espera'])
             lista_servicio_semana.extend(stats_dia['tiempos_de_servicio'])
         
-            # 4. Reportar resultados del día (Usamos los valores ya calculados)
+            # 4. Reportar resultados del día 
             print(f"  Resultados: Vacunados: {stats_dia['vacunados']}, "
                   f"Abandonos: {stats_dia['abandonos']}, "
                   f"Reprogramados al cierre: {stats_dia['reprogramados']}, "
