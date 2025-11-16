@@ -1,8 +1,8 @@
 import random
-import math
 import heapq
 from collections import deque
 from typing import List, Optional, Dict, Any, Tuple
+import statistics
 
 from persona import Persona
 from calendario import Calendario
@@ -73,6 +73,7 @@ class SimuladorVacunacion:
                 # Se une a la cola 
                 self.cola.append(persona)
                 self.estadisticas['cola_maxima'] = max(self.estadisticas['cola_maxima'], len(self.cola))
+                self.estadisticas['cola_minima'] = min(self.estadisticas['cola_minima'], len(self.cola))
 
     def _procesar_evento_salida(self, cabina: Cabina, nombre_dia: str):
      
@@ -83,13 +84,16 @@ class SimuladorVacunacion:
         self.estadisticas['vacunados'] += 1
         self.estadisticas['tiempo_espera_total'] += persona_vacunada.tiempo_espera()
         self.estadisticas['tiempo_sistema_total'] += persona_vacunada.tiempo_sistema()
-        
+        self.estadisticas['tiempos_de_espera'].append(persona_vacunada.tiempo_espera())
+        self.estadisticas['tiempos_de_servicio'].append(persona_vacunada.tiempo_servicio)
+
         # Informar al calendario que la persona se vacunó
         self.calendario.registrar_vacunado(persona_vacunada, nombre_dia)
         
         # Llamar al siguiente en la cola (si hay)
         if self.cola:
             siguiente_persona = self.cola.popleft()
+            self.estadisticas['cola_minima'] = min(self.estadisticas['cola_minima'], len(self.cola))
             cabina.asignar(siguiente_persona, self.tiempo_actual, siguiente_persona.tiempo_servicio)
             
             if cabina.tiempo_liberacion is not None:
@@ -105,9 +109,17 @@ class SimuladorVacunacion:
         
         self.estadisticas = {
             'llegadas_atendidas': 0, 'abandonos': 0, 'vacunados': 0,
-            'cola_maxima': 0, 'tiempo_espera_total': 0.0, 'tiempo_sistema_total': 0.0, 'reprogramados':0
+            'cola_maxima': 0, 'tiempo_espera_total': 0.0, 
+            'tiempo_sistema_total': 0.0, 'reprogramados':0,'tiempos_de_espera':[],'tiempos_de_servicio':[],'tasa_reprogramados':0,
+            'cola_minima': float('inf'),
+            'espera_prom':0,
+            'espera_max':0,
+            'espera_min':0,
+            'servicio_prom':0,
+            'servicio_max':0,
+            'servicio_min':0
         }
-        
+
         pacientes_potenciales_hoy = list(self.calendario.obtener_pacientes_para_hoy(nombre_dia))
         tiempo_prox_llegada = 0.0
 
@@ -124,8 +136,6 @@ class SimuladorVacunacion:
                 persona.tiempo_llegada = tiempo_prox_llegada
                 self._programar_evento(tiempo_prox_llegada, "LLEGADA", persona)
             else:
-                # No asiste. Se queda en la lista 'sinVacunar' para
-                # la próxima semana.
                 pass
         
         # Simulación de Eventos 
@@ -138,13 +148,14 @@ class SimuladorVacunacion:
                 heapq.heappush(self.cola_eventos, (tiempo, tipo_evento, data))
                 break    
 
-            if tipo_evento == "LLEGADA":
-                self.estadisticas['llegadas_atendidas'] += 1
+            if tipo_evento == "LLEGADA":                
                 self._procesar_evento_llegada(data, nombre_dia)
             elif tipo_evento == "SALIDA":
                 self._procesar_evento_salida(data, nombre_dia)
 
-
+        #Agregar cola minima al 0
+        if self.estadisticas['cola_minima'] == float('inf'):
+            self.estadisticas['cola_minima'] = 0
 
         
         #  Fin del Día reprogramar personas de la cola 
@@ -154,14 +165,52 @@ class SimuladorVacunacion:
                 self.calendario.registrar_reprogramado(persona, nombre_dia)
             self.cola.clear()
         
+
+        # Listas de tiempos
+        tiempos_espera = self.estadisticas['tiempos_de_espera']
+        tiempos_servicio = self.estadisticas['tiempos_de_servicio']
+        
+        # Totales
+        abandonos_totales_dia = self.estadisticas['abandonos'] + self.estadisticas['reprogramados']
+        vacunados_dia = self.estadisticas['vacunados']
+        
+        # Tasa de Abandono
+        denominador_tasa = abandonos_totales_dia + vacunados_dia
+        if denominador_tasa > 0:
+            self.estadisticas['tasa_abandono'] = (self.estadisticas['abandonos'] / denominador_tasa) * 100
+            self.estadisticas['tasa_reprogramados'] = (self.estadisticas['reprogramados'] / denominador_tasa) * 100
+        else:
+            self.estadisticas['tasa_abandono'] = 0.0
+            self.estadisticas['tasa_reprogramados'] = 0.0
+
+        # Estadísticas de Espera y Servicio
+        if vacunados_dia > 0:
+            self.estadisticas['espera_prom'] = statistics.mean(tiempos_espera)
+            self.estadisticas['espera_max'] = max(tiempos_espera)
+            self.estadisticas['espera_min'] = min(tiempos_espera)
+            
+            self.estadisticas['servicio_prom'] = statistics.mean(tiempos_servicio)
+            self.estadisticas['servicio_max'] = max(tiempos_servicio)
+            self.estadisticas['servicio_min'] = min(tiempos_servicio)
+        else:
+            # Si no se vacunó a nadie, ponemos todo en 0
+            self.estadisticas['espera_prom'] = 0.0
+            self.estadisticas['espera_max'] = 0.0
+            self.estadisticas['espera_min'] = 0.0
+            self.estadisticas['servicio_prom'] = 0.0
+            self.estadisticas['servicio_max'] = 0.0
+            self.estadisticas['servicio_min'] = 0.0
+
+
+
         costo_fijo = self.COSTOS['FIJO_CABINA'] * self.num_cabinas
         costo_dosis = self.estadisticas['vacunados'] * self.COSTOS['DOSIS']
-        costo_reprog = self.estadisticas['abandonos'] * self.COSTOS['REPROG']
+        costo_reprog = abandonos_totales_dia * self.COSTOS['REPROG']
         costo_espera = self.estadisticas['tiempo_espera_total'] * self.COSTOS['ESPERA']
         self.estadisticas['costo_total_dia'] = costo_fijo + costo_dosis + costo_reprog + costo_espera
         
         if self.estadisticas['vacunados'] > 0:
-            self.estadisticas['tiempo_espera_promedio'] = self.estadisticas['tiempo_espera_total'] / self.estadisticas['vacunados']
+            self.estadisticas['tiempo_espera_promedio'] = self.estadisticas['espera_prom']
             self.estadisticas['costo_por_vacunado'] = self.estadisticas['costo_total_dia'] / self.estadisticas['vacunados']
         else:
             self.estadisticas['tiempo_espera_promedio'] = 0.0
