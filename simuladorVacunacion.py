@@ -201,7 +201,12 @@ class SimuladorVacunacion:
             self.estadisticas['servicio_max'] = 0.0
             self.estadisticas['servicio_min'] = 0.0
 
-
+        tiempo_ocupado_total = sum(c.tiempo_ocupacion_total for c in self.cabinas)
+        tiempo_disponible_total = self.num_cabinas * self.TIEMPO_DIA
+        if tiempo_disponible_total > 0:
+            self.estadisticas['ocupacion_prom_diaria'] = (tiempo_ocupado_total / tiempo_disponible_total) * 100
+        else:
+            self.estadisticas['ocupacion_prom_diaria'] = 0.0
 
         costo_fijo = self.COSTOS['FIJO_CABINA'] * self.num_cabinas
         costo_dosis = self.estadisticas['vacunados'] * self.COSTOS['DOSIS']
