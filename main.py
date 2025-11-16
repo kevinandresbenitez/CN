@@ -10,8 +10,8 @@ from simuladorVacunacion import SimuladorVacunacion
 
 
 CONSTANTES = {
-    "CABINAS": 1,
-    "POBLACION_TOTAL": 20000,
+    "CABINAS": 5,
+    "POBLACION_TOTAL": 10000,
     "TASA_LLEGADAS": 30,
     "TIEMPO_SERVICIO": 3,
     "HORAS_TRABAJO": 10,
@@ -19,8 +19,6 @@ CONSTANTES = {
     "PROB_ABANDONO": 0.2,
     "TASA_ASISTENCIA": 0.8, 
 
-    # La gente solo considerará abandonar si la cola es mayor a esto.
-    "COLA_PACIENCIA": 50, 
 
     "COSTO_FIJO_CABINA": 55000,
     "COSTO_DOSIS": 2000,
@@ -36,7 +34,7 @@ if __name__ == "__main__":
 
     # Inicializar calendario
     calendario = Calendario()
-    calendario.inicializar_poblacion(CONSTANTES["POBLACION_TOTAL"])
+    calendario.inicializar_poblacion(CONSTANTES["POBLACION_TOTAL"], CONSTANTES["TASA_LLEGADAS"],CONSTANTES["TIEMPO_SERVICIO"])
 
     # Inicializar simulacion
     simulacion = SimuladorVacunacion(calendario,CONSTANTES)
@@ -59,7 +57,9 @@ if __name__ == "__main__":
         cola_max_semana = 0
         espera_total_semana = 0.0
         dias_operativos_semana = 0
+        reprogramados_semana=0
 
+        #Bucle de semana
         for nombre_dia in calendario.dias:
             dia_global += 1
             dias_operativos_semana += 1
@@ -82,6 +82,7 @@ if __name__ == "__main__":
             vacunados_semana += stats_dia['vacunados']
             abandonos_semana += stats_dia['abandonos']
             costo_semana += stats_dia['costo_total_dia']
+            reprogramados_semana += stats_dia['reprogramados']
             cola_max_semana = max(cola_max_semana, stats_dia['cola_maxima'])
             espera_total_semana += stats_dia['tiempo_espera_total']
         
@@ -90,6 +91,7 @@ if __name__ == "__main__":
                   f"Abandonos: {stats_dia['abandonos']}, "
                   f"Cola Máx: {stats_dia['cola_maxima']}, "
                   f"Espera Prom: {stats_dia['tiempo_espera_promedio']:.2f} min, "
+                  f"Reprogramados al cierre: {stats_dia['reprogramados']}, "
                   f"Costo: ${stats_dia['costo_total_dia']:,.2f}")
             
             #Mostrar hitos
@@ -102,19 +104,20 @@ if __name__ == "__main__":
         # Reporte al final de la semana
         espera_prom_semana = 0.0
         if vacunados_semana > 0:
-            # Calculamos el promedio ponderado de la semana
+            # Calculamos el promedio de la semana
             espera_prom_semana = espera_total_semana / vacunados_semana
             
         print(f"\n--- Resumen Semana {semana} ---")
         print(f"  Días operativos: {dias_operativos_semana}")
         print(f"  Nuevos vacunados: {vacunados_semana}")
         print(f"  Nuevos abandonos: {abandonos_semana}")
+        print(f"  Reprogramados: {reprogramados_semana}")
         print(f"  Pico de cola semanal: {cola_max_semana} personas")
         print(f"  Espera prom. semanal: {espera_prom_semana:.2f} min")
         print(f"  Costo semanal: ${costo_semana:,.2f}")
         print(f"  Total acumulado: {calendario.total_vacunados()} / {CONSTANTES['POBLACION_TOTAL']}")
 
-    # --- INICIO NUEVO RESUMEN FINAL ---
+    # --- Reporte final de la simulacion ---
     print("\n" + "="*60)
     print("SIMULACIÓN FINALIZADA - RESUMEN TOTAL")
     print("="*60)
@@ -132,7 +135,7 @@ if __name__ == "__main__":
     if calendario.total_vacunados() > 0:
          costo_prom_por_persona = costo_total_campana / calendario.total_vacunados()
     print(f"  Costo promedio por vacunado: ${costo_prom_por_persona:,.2f}")
-    # --- FIN NUEVO RESUMEN FINAL ---
+
 
 
 

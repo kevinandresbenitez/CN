@@ -22,7 +22,6 @@ class SimuladorVacunacion:
         self.TIEMPO_SERVICIO = constantes['TIEMPO_SERVICIO']
         self.TIEMPO_DIA = constantes['TIEMPO_DIA']
         self.PROB_ABANDONO = constantes['PROB_ABANDONO']
-        self.COLA_PACIENCIA = constantes['COLA_PACIENCIA']
         self.TASA_ASISTENCIA = constantes['TASA_ASISTENCIA']
         self.COSTOS = {
             "FIJO_CABINA": constantes['COSTO_FIJO_CABINA'],
@@ -35,22 +34,10 @@ class SimuladorVacunacion:
 
         # Agrego esto para fijar secuencia aleatoria
         self.rand_asistencia = random.Random(42)
-        self.rand_llegada = random.Random(43)
-        self.rand_servicio = random.Random(44)
         self.rand_abandono = random.Random(45)
 
 
-    
-    def _generar_tiempo_llegada(self) -> float:
-        """Genera el tiempo HASTA la próxima llegada."""
-        # Tasa de 30 personas/min -> Media de 1/30 minutos entre llegadas
-        return self.rand_llegada.expovariate(self.TASA_LLEGADAS)
-
-    def _generar_tiempo_servicio(self) -> float:
-        return self.rand_servicio.expovariate(1.0 / self.TIEMPO_SERVICIO)
-
     def _buscar_cabina_libre(self) -> Optional[Cabina]:
-        """Encuentra la primera cabina no ocupada."""
         for cabina in self.cabinas:
             if cabina.estaLibre():
                 return cabina
@@ -64,21 +51,26 @@ class SimuladorVacunacion:
         cabina_libre = self._buscar_cabina_libre()
         
         if cabina_libre:
-            tiempo_servicio = self._generar_tiempo_servicio()
-            cabina_libre.asignar(persona, self.tiempo_actual, tiempo_servicio)
+            cabina_libre.asignar(persona, self.tiempo_actual, persona.tiempo_servicio)
 
-            # Programamos su futuro evento de "SALIDA"
+            # Programamos su futuro evento de salida
             if cabina_libre.tiempo_liberacion is not None:
                 self._programar_evento(cabina_libre.tiempo_liberacion, "SALIDA", cabina_libre)
         else:
+
+            # Estimar tiempo de espera de persona
+            tiempo_espera_estimado = (len(self.cola) * self.TIEMPO_SERVICIO) / self.num_cabinas
+            TIEMPO_MAX_TOLERADO = 150
+
+
             # No hay cabinas. La persona mira la cola y decide.
-            if len(self.cola) > self.COLA_PACIENCIA and self.rand_abandono.random() < self.PROB_ABANDONO:
+            if tiempo_espera_estimado > TIEMPO_MAX_TOLERADO and self.rand_abandono.random() < self.PROB_ABANDONO:
                 # Abandona
                 persona.abandono = True
                 self.estadisticas['abandonos'] += 1
                 self.calendario.registrar_reprogramado(persona, nombre_dia)
             else:
-                # Se une a la cola (porque la cola es corta O decidió no abandonar)
+                # Se une a la cola 
                 self.cola.append(persona)
                 self.estadisticas['cola_maxima'] = max(self.estadisticas['cola_maxima'], len(self.cola))
 
@@ -98,8 +90,7 @@ class SimuladorVacunacion:
         # Llamar al siguiente en la cola (si hay)
         if self.cola:
             siguiente_persona = self.cola.popleft()
-            tiempo_servicio = self._generar_tiempo_servicio()
-            cabina.asignar(siguiente_persona, self.tiempo_actual, tiempo_servicio)
+            cabina.asignar(siguiente_persona, self.tiempo_actual, siguiente_persona.tiempo_servicio)
             
             if cabina.tiempo_liberacion is not None:
                 self._programar_evento(cabina.tiempo_liberacion, "SALIDA", cabina)
@@ -114,20 +105,19 @@ class SimuladorVacunacion:
         
         self.estadisticas = {
             'llegadas_atendidas': 0, 'abandonos': 0, 'vacunados': 0,
-            'cola_maxima': 0, 'tiempo_espera_total': 0.0, 'tiempo_sistema_total': 0.0
+            'cola_maxima': 0, 'tiempo_espera_total': 0.0, 'tiempo_sistema_total': 0.0, 'reprogramados':0
         }
         
         pacientes_potenciales_hoy = list(self.calendario.obtener_pacientes_para_hoy(nombre_dia))
-        
         tiempo_prox_llegada = 0.0
 
         for persona in pacientes_potenciales_hoy:
             
             # Cada persona tiene una probabilidad de asistir
             if self.rand_asistencia.random() < self.TASA_ASISTENCIA:
-                # Generamos su tiempo de llegada
-                tiempo_prox_llegada += self._generar_tiempo_llegada()
-            
+                tiempo_prox_llegada += persona.tiempo_entre_llegada
+
+                #Termina el dia
                 if tiempo_prox_llegada > self.TIEMPO_DIA:
                     break 
             
@@ -142,17 +132,24 @@ class SimuladorVacunacion:
         while self.cola_eventos:
             (tiempo, tipo_evento, data) = heapq.heappop(self.cola_eventos)
             self.tiempo_actual = tiempo
-            
+
+             # Si finalizo el dia
+            if tiempo > self.TIEMPO_DIA:
+                heapq.heappush(self.cola_eventos, (tiempo, tipo_evento, data))
+                break    
+
             if tipo_evento == "LLEGADA":
                 self.estadisticas['llegadas_atendidas'] += 1
                 self._procesar_evento_llegada(data, nombre_dia)
             elif tipo_evento == "SALIDA":
                 self._procesar_evento_salida(data, nombre_dia)
+
+
+
         
-        #  Fin del Día (Post-Procesamiento y Costos) 
+        #  Fin del Día reprogramar personas de la cola 
         if self.cola:
-            print(f"  ({len(self.cola)} personas en cola al cierre. Reprogramando...)")
-            self.estadisticas['abandonos'] += len(self.cola)
+            self.estadisticas['reprogramados'] += len(self.cola)
             for persona in self.cola:
                 self.calendario.registrar_reprogramado(persona, nombre_dia)
             self.cola.clear()

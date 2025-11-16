@@ -2,13 +2,16 @@
 
 
 from persona import Persona
-from random import Random
+import random
 
 class Calendario:
 
     DIA_ACTUAL:int = 0
-
+    
     def __init__(self):
+        self.rand_llegada = random.Random(46)
+        self.rand_servicio = random.Random(47)
+        self.rand_poblacion =random.Random(41)
         self.dias:dict[str, dict[str, list[Persona]]] = {
                     "lunes": {"sinVacunar": [], "vacunados": [], "reprogramados": []},
                     "martes": {"sinVacunar": [], "vacunados": [], "reprogramados": []},
@@ -17,14 +20,9 @@ class Calendario:
                     "viernes": {"sinVacunar": [], "vacunados": [], "reprogramados": []}
         }
 
-    def inicializar_poblacion(self, total_personas:int):
-        """
-        Crea las instancias de Persona y las distribuye en la lista 'sinVacunar'
-        de cada día de forma equitativa.
-        """
-        num_dias = len(self.dias)
-        rand_poblacion = Random(41)
-        lista_dnis = rand_poblacion.sample(range(10_000_000, 50_000_000), total_personas)
+    def inicializar_poblacion(self, total_personas:int, TASA_LLEGADAS:int, TIEMPO_SERVICIO:int):
+         
+        lista_dnis = self.rand_poblacion.sample(range(10_000_000, 50_000_000), total_personas)
         mapeo_dias = {
             0: "lunes",
             1: "lunes",
@@ -41,7 +39,16 @@ class Calendario:
         for dni in lista_dnis:
             ultimo_digito = dni % 10
             dia_asignado = mapeo_dias[ultimo_digito]
-            persona = Persona(dni=dni, tiempo_llegada=0.0)
+
+            # Para cada persona generar un tiempo de servicio y tiempo entre llegadas aleaotorios
+            tiempo_servicio = self.rand_servicio.expovariate(1.0 / TIEMPO_SERVICIO)
+            tiempo_entre_llegada = self.rand_llegada.expovariate(TASA_LLEGADAS)
+
+            persona = Persona(dni=dni,
+                              tiempo_llegada=0.0, 
+                              tiempo_servicio = tiempo_servicio,
+                              tiempo_entre_llegada = tiempo_entre_llegada
+                              )
             self.dias[dia_asignado]["sinVacunar"].append(persona)
 
         print("Población Inicializada")

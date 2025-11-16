@@ -3,11 +3,15 @@ from typing import Optional
 @dataclass
 class Persona:
     dni: int
-    tiempo_llegada: float
+    vacunaciones: int = 0
+    abandono: bool = False
+
+    tiempo_llegada: Optional[float] = None
     tiempo_inicio_servicio: Optional[float] = None
     tiempo_fin_servicio: Optional[float] = None
-    abandono: bool = False
-    vacunaciones: int = 0
+    
+    tiempo_servicio:int = None
+    tiempo_entre_llegada:int = None
 
     def tiempo_espera(self) -> float:
         if self.tiempo_inicio_servicio is not None:
