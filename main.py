@@ -59,8 +59,6 @@ if __name__ == "__main__":
         'ocupacion_prom_diaria', 'costo_total_dia'
     ]
 
-    # --- INICIO DEL BLOQUE 'with' ---
-    # El 'while' ahora está DENTRO de este bloque
     with open('reporte_simulacion.csv', 'w', newline='', encoding='utf-8') as f:
         writer = csv.DictWriter(f, fieldnames=columnas_csv)
         writer.writeheader() # Escribe la fila de encabezados
